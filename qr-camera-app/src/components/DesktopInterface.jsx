@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { Camera, QrCode, Wifi, WifiOff, Users, Zap, Monitor, Smartphone, CheckCircle2, AlertCircle } from 'lucide-react';
 import QRCode from 'qrcode';
 import io from 'socket.io-client';
+import bgframe from '../assets/bgframe.png';
 
 const DesktopInterface = () => {
   const [sessionId, setSessionId] = useState(null);
@@ -20,6 +21,8 @@ const DesktopInterface = () => {
   
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const frameImg = useRef(null); // Ref for frame image
+  const [mergedImage, setMergedImage] = useState(null); // Store merged image for download
 
   // Ref for the capture button
   const captureBtnRef = useRef(null);
@@ -51,7 +54,7 @@ const DesktopInterface = () => {
   // Generate new session
   const generateNewSession = async () => {
     try {
-      const response = await fetch('/api/generate-session', {
+      const response = await fetch('https://photobooth-backend-production-a0f1.up.railway.app/api/generate-session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -180,11 +183,17 @@ const DesktopInterface = () => {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const imageData = canvas.toDataURL('image/jpeg', 0.8);
+    // Merge with frame
+    const frame = frameImg.current;
+    if (frame) {
+      context.drawImage(frame, 0, 0, canvas.width, canvas.height);
+    }
+    const mergedData = canvas.toDataURL('image/png');
+    setMergedImage(mergedData);
     if (socket && sessionId) {
       socket.emit('image_captured', {
         session_id: sessionId,
-        image_data: imageData
+        image_data: mergedData
       });
     }
     setCaptureCount(prev => prev + 1);
@@ -293,82 +302,71 @@ const DesktopInterface = () => {
         Professional remote camera control system. Scan the QR code with your mobile device to start capturing high-quality photos.
       </p>
       <div className="brutalist-main">
-        <div className="brutalist-card">
-          <div className="brutalist-card__header">
-            <div className="brutalist-card__icon">
-              {getStatusIcon()}
-            </div>
-            <div className="brutalist-card__alert">{getStatusText()}</div>
-          </div>
-          <div className="brutalist-card__message">
-            {mobileConnected ? 'Ready to capture photos' : 'Waiting for mobile device'}
-            {error && (
-              <div className="brutalist-card__error">
-                <AlertCircle style={{ marginRight: 8 }} />
-                {error}
+      {/* Hidden frame image for merging */}
+      <img ref={frameImg} src={bgframe} alt="Frame" style={{ display: 'none' }} crossOrigin="anonymous" />
+        {/* Show QR and connection status when idle or not connected */}
+        {(!mobileConnected || connectionStatus === 'idle') && (
+          <>
+            <div className="brutalist-card">
+              <div className="brutalist-card__header">
+                <div className="brutalist-card__icon">{getStatusIcon()}</div>
+                <div className="brutalist-card__alert">{getStatusText()}</div>
               </div>
-            )}
-          </div>
-          <div className="brutalist-card__actions">
-            <a
-              className="brutalist-card__button brutalist-card__button--mark"
-              href="#"
-              onClick={generateNewSession}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}
-            >
-              <QrCode />
-              <span style={{ fontWeight: 700 }}>Generate New QR Code</span>
-            </a>
-            <a
-              className={`brutalist-card__button brutalist-card__button--read${!mobileConnected ? ' brutalist-card__button--disabled' : ''}`}
-              href="#"
-              onClick={e => {e.preventDefault(); endSession();}}
-              style={{ pointerEvents: !mobileConnected ? 'none' : 'auto', opacity: !mobileConnected ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}
-            >
-              <Zap />
-              <span style={{ fontWeight: 700 }}>End Session</span>
-            </a>
-          </div>
-        </div>
-        <div className="brutalist-card">
-          <div className="brutalist-card__header">
-            <div className="brutalist-card__icon">
-              <QrCode />
-            </div>
-            <div className="brutalist-card__alert">Connection QR Code</div>
-          </div>
-          <div className="brutalist-card__message">
-            {qrCodeUrl ? (
-              <img src={qrCodeUrl} alt="QR Code" className="brutalist-card__qr" />
-            ) : (
-              <div className="brutalist-card__loading">Generating QR Code...</div>
-            )}
-            <div className="brutalist-card__status">
-              {mobileConnected ? <Wifi /> : <WifiOff />}
-              {getStatusText()}
-            </div>
-            {mobileConnected && (
-              <div className="brutalist-card__info">
-                <Users style={{ marginRight: 8 }} /> Ready to capture amazing photos!
+              <div className="brutalist-card__message">
+                {mobileConnected ? 'Ready to capture photos' : 'Waiting for mobile device'}
+                {error && (
+                  <div className="brutalist-card__error">
+                    <AlertCircle style={{ marginRight: 8 }} />
+                    {error}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </div>
-        <div className="brutalist-card">
-          <div className="brutalist-card__header">
-            <div className="brutalist-card__icon">
-              <Camera />
+              <div className="brutalist-card__actions">
+                <a
+                  className="brutalist-card__button brutalist-card__button--mark"
+                  href="#"
+                  onClick={generateNewSession}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}
+                >
+                  <QrCode />
+                  <span style={{ fontWeight: 700 }}>Generate New QR Code</span>
+                </a>
+              </div>
             </div>
-            <div className="brutalist-card__alert">Camera Preview</div>
-          </div>
-          <div className="brutalist-card__message">
-            <div className="brutalist-card__video">
+            <div className="brutalist-card">
+              <div className="brutalist-card__header">
+                <div className="brutalist-card__icon"><QrCode /></div>
+                <div className="brutalist-card__alert">Connection QR Code</div>
+              </div>
+              <div className="brutalist-card__message">
+                {qrCodeUrl ? (
+                  <img src={qrCodeUrl} alt="QR Code" className="brutalist-card__qr" />
+                ) : (
+                  <div className="brutalist-card__loading">Generating QR Code...</div>
+                )}
+                <div className="brutalist-card__status">
+                  {mobileConnected ? <Wifi /> : <WifiOff />}
+                  {getStatusText()}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+        {/* Show camera interface only when mobile is connected */}
+        {mobileConnected && connectionStatus !== 'idle' && (
+          <div className="brutalist-card">
+            <div className="brutalist-card__header">
+              <div className="brutalist-card__icon"><Camera /></div>
+              <div className="brutalist-card__alert">Camera Preview</div>
+            </div>
+            <div className="brutalist-card__message">
+              <div className="brutalist-card__video">
                 {connectionStatus === 'capturing' ? (
                   <div style={{ width: '100%', height: '240px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', border: '2px solid #000' }}>
                     <Loader />
                   </div>
                 ) : (
-                  <>
+                  <div style={{ position: 'relative', width: '100%', height: '240px' }}>
                     <video
                       ref={videoRef}
                       autoPlay
@@ -376,73 +374,56 @@ const DesktopInterface = () => {
                       muted
                       style={{ width: '100%', height: '240px', objectFit: 'cover', border: '2px solid #000', background: '#222' }}
                     />
+                    {/* Frame overlay */}
+                    <img
+                      src={bgframe}
+                      alt="Frame Overlay"
+                      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '240px', pointerEvents: 'none' }}
+                    />
                     <canvas ref={canvasRef} style={{ display: 'none' }} />
-                  </>
+                  </div>
                 )}
-            </div>
-            <div className="brutalist-card__actions">
-              <a
-                ref={captureBtnRef}
-                className={`brutalist-card__button brutalist-card__button--mark${!mobileConnected || connectionStatus === 'capturing' ? ' brutalist-card__button--disabled' : ''}`}
-                href="#"
-                onClick={e => {e.preventDefault(); captureImage();}}
-                style={{ pointerEvents: !mobileConnected || connectionStatus === 'capturing' ? 'none' : 'auto', opacity: !mobileConnected || connectionStatus === 'capturing' ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}
-              >
-                <Camera />
-                <span style={{ fontWeight: 700 }}>{connectionStatus === 'capturing' ? 'Capturing...' : 'Capture Photo'}</span>
-              </a>
-              <a
-                className={`brutalist-card__button brutalist-card__button--read${!mobileConnected || connectionStatus === 'capturing' || multiCaptureActive ? ' brutalist-card__button--disabled' : ''}`}
-                href="#"
-                onClick={handleMultiCapture}
-                style={{ pointerEvents: !mobileConnected || connectionStatus === 'capturing' || multiCaptureActive ? 'none' : 'auto', opacity: !mobileConnected || connectionStatus === 'capturing' || multiCaptureActive ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}
-              >
-                <Zap />
-                <span style={{ fontWeight: 700 }}>Capture Multiple Photos</span>
-              </a>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
-                <label htmlFor="multiCaptureCount" className="brutalist-label">Count:</label>
-                <input
-                  id="multiCaptureCount"
-                  type="number"
-                  min={2}
-                  max={10}
-                  value={multiCaptureCount}
-                  onChange={e => setMultiCaptureCount(Number(e.target.value))}
-                  className="brutalist-input"
-                  disabled={multiCaptureActive}
-                  style={{
-                    width: '5rem',
-                    padding: '0.5rem 0.75rem',
-                    borderRadius: '0',
-                    border: '2px solid #000',
-                    background: '#fff',
-                    color: '#222',
-                    fontWeight: 'bold',
-                    fontFamily: 'Recursive, Space Grotesk, Arial, sans-serif',
-                    boxShadow: '2px 2px 0 #000',
-                    textAlign: 'center',
-                    outline: 'none',
-                    transition: 'box-shadow 0.1s',
-                  }}
-                />
+
               </div>
-            </div>
-            <div className="brutalist-card__info">
-              {mobileConnected
-                ? "🎯 Mobile device connected. Ready to capture stunning photos!"
-                : "📱 Waiting for mobile device to connect..."}
-              {lastCaptureTime && (
-                <div className="brutalist-card__last-capture">Last capture: {lastCaptureTime.toLocaleTimeString()}</div>
+              <div className="brutalist-card__actions">
+                <a
+                  ref={captureBtnRef}
+                  className={`brutalist-card__button brutalist-card__button--mark${!mobileConnected || connectionStatus === 'capturing' ? ' brutalist-card__button--disabled' : ''}`}
+                  href="#"
+                  onClick={e => {e.preventDefault(); captureImage();}}
+                  style={{ pointerEvents: !mobileConnected || connectionStatus === 'capturing' ? 'none' : 'auto', opacity: !mobileConnected || connectionStatus === 'capturing' ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}
+                >
+                  <Camera />
+                  <span style={{ fontWeight: 700 }}>{connectionStatus === 'capturing' ? 'Capturing...' : 'Capture Photo'}</span>
+                </a>
+                
+                <a
+                  className={`brutalist-card__button brutalist-card__button--read${!mergedImage ? ' brutalist-card__button--disabled' : ''}`}
+                  href={mergedImage}
+                  download={`se-day-photo-${Date.now()}.png`}
+                  style={{ pointerEvents: !mergedImage ? 'none' : 'auto', opacity: !mergedImage ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}
+                >
+                  <Camera />
+                  <span style={{ fontWeight: 700 }}>Download Photo with Frame</span>
+                </a>
+                
+              </div>
+              <div className="brutalist-card__info">
+                {mobileConnected
+                  ? "🎯 Mobile device connected. Ready to capture stunning photos!"
+                  : "📱 Waiting for mobile device to connect..."}
+                {lastCaptureTime && (
+                  <div className="brutalist-card__last-capture">Last capture: {lastCaptureTime.toLocaleTimeString()}</div>
+                )}
+              </div>
+              {captureCount > 0 && (
+                <div className="brutalist-card__captures">
+                  <span className="brutalist-card__captures-count">{captureCount}</span> Photos Captured
+                </div>
               )}
             </div>
-            {captureCount > 0 && (
-              <div className="brutalist-card__captures">
-                <span className="brutalist-card__captures-count">{captureCount}</span> Photos Captured
-              </div>
-            )}
           </div>
-        </div>
+        )}
       </div>
       {sessionId && (
         <div className="brutalist-session">
@@ -461,10 +442,14 @@ const DesktopInterface = () => {
 
 
 const StyledWrapper = styled.div`
-  min-height: 100vh;
-  background: #fff;
-  padding: 2rem;
-  font-family: 'Space Grotesk', Arial, Helvetica, sans-serif;
+hmin-height: 100vh;
+background: #fff;
+padding: 2rem;
+font-family: 'Space Grotesk', Arial, Helvetica, sans-serif;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Recursive', Arial, Helvetica, sans-serif;
     font-weight: 900;
@@ -499,12 +484,17 @@ const StyledWrapper = styled.div`
     font-weight: 600;
   }
   .brutalist-main {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
     gap: 2rem;
     margin-bottom: 2rem;
+    width: 100%;
     @media (max-width: 900px) {
-      grid-template-columns: 1fr;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
     }
   }
   .brutalist-card {
@@ -518,6 +508,10 @@ const StyledWrapper = styled.div`
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 420px;
     .brutalist-card__header {
       display: flex;
       align-items: center;
@@ -698,6 +692,12 @@ const StyledWrapper = styled.div`
     box-shadow: 5px 5px 0 #000;
     border-radius: 8px;
     padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 420px;
     .brutalist-session__info {
       display: flex;
       align-items: center;

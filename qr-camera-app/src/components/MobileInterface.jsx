@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { motion } from 'framer-motion';
 import { Camera, Download, Smartphone, Wifi, WifiOff, CheckCircle, Zap, Image, Share2, RefreshCw, Power } from 'lucide-react';
 import io from 'socket.io-client';
+import bgframe from '../assets/bgframe.png';
 
 const MobileInterface = () => {
   const { sessionId } = useParams();
@@ -12,6 +13,7 @@ const MobileInterface = () => {
   const [connectionStatus, setConnectionStatus] = useState('connecting'); // connecting, connected, disconnected, error
   const [capturedImage, setCapturedImage] = useState(null);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [countdown, setCountdown] = useState(null); // null or number
   const [error, setError] = useState('');
   const [captureCount, setCaptureCount] = useState(0);
   const [connectionTime, setConnectionTime] = useState(null);
@@ -90,9 +92,19 @@ const MobileInterface = () => {
       return;
     }
 
-    setIsCapturing(true);
+    setCountdown(3);
     setCapturedImage(null);
-    socket.emit('capture_request', { session_id: sessionId });
+    let count = 3;
+    const interval = setInterval(() => {
+      setCountdown(count);
+      if (count === 1) {
+        clearInterval(interval);
+        setCountdown(null);
+        setIsCapturing(true);
+        socket.emit('capture_request', { session_id: sessionId });
+      }
+      count--;
+    }, 1000);
   };
 
   // Download captured image
@@ -178,108 +190,133 @@ const MobileInterface = () => {
   };
 
   return (
-    <StyledWrapper>
-      <div className="brutalist-header">
-        <div className="brutalist-header__icon">
-          <Smartphone />
+    <>
+      {countdown !== null && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(0,0,0,0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <span style={{
+            color: '#fff',
+            fontSize: '5rem',
+            fontWeight: 'bold',
+            textShadow: '0 2px 8px #000'
+          }}>{countdown}</span>
         </div>
-        <h1 className="brutalist-header__title">Mobile Camera Remote</h1>
-      </div>
-      <p className="brutalist-header__desc">
-        Control the desktop camera from your mobile device
-      </p>
-      <div className="brutalist-main">
-        <div className="brutalist-card">
-          <div className="brutalist-card__header">
-            <div className="brutalist-card__icon">{getStatusIcon()}</div>
-            <div className="brutalist-card__alert">{getStatusText()}</div>
+      )}
+      <StyledWrapper>
+        <div className="brutalist-header">
+          <div className="brutalist-header__icon">
+            <Smartphone />
           </div>
-          <div className="brutalist-card__message">
-            {connectionTime && connectionStatus === 'connected' && (
-              <div className="brutalist-card__info">Connected at {connectionTime.toLocaleTimeString()}</div>
-            )}
-            {sessionId && (
-              <div className="brutalist-card__info">Session: <span className="brutalist-session__id">{sessionId.slice(0, 8)}...</span></div>
-            )}
-            {captureCount > 0 && (
-              <div className="brutalist-card__captures">
-                <Image style={{ marginRight: 8 }} />
-                <span className="brutalist-card__captures-count">{captureCount}</span> photos captured
-              </div>
-            )}
-            {error && (
-              <div className="brutalist-card__error">
-                <WifiOff style={{ marginRight: 8 }} />
-                {error}
-              </div>
-            )}
-          </div>
+          <h1 className="brutalist-header__title">Mobile Camera Remote</h1>
         </div>
-        <div className="brutalist-card">
-          <div className="brutalist-card__header">
-            <div className="brutalist-card__icon"><Camera /></div>
-            <div className="brutalist-card__alert">Camera Control</div>
-          </div>
-          <div className="brutalist-card__message">
-            <a
-              className={`brutalist-card__button brutalist-card__button--mark${connectionStatus !== 'connected' || isCapturing ? ' brutalist-card__button--disabled' : ''}`}
-              href="#"
-              onClick={e => {e.preventDefault(); requestCapture();}}
-              style={{ pointerEvents: connectionStatus !== 'connected' || isCapturing ? 'none' : 'auto', opacity: connectionStatus !== 'connected' || isCapturing ? 0.5 : 1 }}
-            >
-              {isCapturing ? <Zap style={{ marginRight: 8 }} /> : <Camera style={{ marginRight: 8 }} />}
-              {isCapturing ? 'Capturing...' : 'Capture Photo'}
-            </a>
-            <div className="brutalist-card__info">
-              {connectionStatus === 'connected'
-                ? "📸 Tap the button above to capture a photo from the desktop camera"
-                : "🔗 Connect to desktop to start capturing photos"}
-            </div>
-          </div>
-        </div>
-        {capturedImage && (
+        <p className="brutalist-header__desc">
+          Control the desktop camera from your mobile device
+        </p>
+        <div className="brutalist-main">
           <div className="brutalist-card">
             <div className="brutalist-card__header">
-              <div className="brutalist-card__icon"><CheckCircle /></div>
-              <div className="brutalist-card__alert">Captured Photo</div>
+              <div className="brutalist-card__icon">{getStatusIcon()}</div>
+              <div className="brutalist-card__alert">{getStatusText()}</div>
             </div>
             <div className="brutalist-card__message">
-              <img src={capturedImage} alt="Captured" className="brutalist-card__qr" />
-              <div className="brutalist-card__actions" style={{ display: 'flex', gap: '0.5rem' }}>
-                <a className="brutalist-card__button brutalist-card__button--mark" href="#" onClick={e => {e.preventDefault(); downloadImage();}}>
-                  <Download style={{ marginRight: 8 }} /> Download
-                </a>
-                <a className="brutalist-card__button brutalist-card__button--read" href="#" onClick={async e => {e.preventDefault(); await shareImage();}}>
-                  <Share2 style={{ marginRight: 8 }} /> Share
-                </a>
-              </div>
-              <div className="brutalist-card__info" style={{ background: '#e6fff7', color: '#008060', padding: '0.5rem', borderRadius: '8px', marginTop: '1rem' }}>
-                ✨ Photo captured successfully! You can download it or capture another one.
-              </div>
+              {connectionTime && connectionStatus === 'connected' && (
+                <div className="brutalist-card__info">Connected at {connectionTime.toLocaleTimeString()}</div>
+              )}
+              {sessionId && (
+                <div className="brutalist-card__info">Session: <span className="brutalist-session__id">{sessionId.slice(0, 8)}...</span></div>
+              )}
+              {captureCount > 0 && (
+                <div className="brutalist-card__captures">
+                  <Image style={{ marginRight: 8 }} />
+                  <span className="brutalist-card__captures-count">{captureCount}</span> photos captured
+                </div>
+              )}
+              {error && (
+                <div className="brutalist-card__error">
+                  <WifiOff style={{ marginRight: 8 }} />
+                  {error}
+                </div>
+              )}
             </div>
           </div>
-        )}
-        <div className="brutalist-card">
-          <div className="brutalist-card__header">
-            <div className="brutalist-card__icon"><Power /></div>
-            <div className="brutalist-card__alert">Session Controls</div>
-          </div>
-          <div className="brutalist-card__message">
-            <div className="brutalist-card__actions">
-              <a className={`brutalist-card__button brutalist-card__button--mark${connectionStatus === 'connecting' ? ' brutalist-card__button--disabled' : ''}`} href="#" onClick={e => {e.preventDefault(); window.location.reload();}} style={{ pointerEvents: connectionStatus === 'connecting' ? 'none' : 'auto', opacity: connectionStatus === 'connecting' ? 0.5 : 1 }}>
-                <RefreshCw style={{ marginRight: 8 }} /> Reconnect
-              </a>
-              <a className="brutalist-card__button brutalist-card__button--read" href="#" onClick={e => {e.preventDefault(); endSession();}}>
-                <Power style={{ marginRight: 8 }} /> End Session
-              </a>
+          {!capturedImage && (
+            <div className="brutalist-card">
+              <div className="brutalist-card__header">
+                <div className="brutalist-card__icon"><Camera /></div>
+                <div className="brutalist-card__alert">Camera Control</div>
+              </div>
+              <div className="brutalist-card__message">
+                <a
+                  className={`brutalist-card__button brutalist-card__button--mark${connectionStatus !== 'connected' || isCapturing || countdown !== null ? ' brutalist-card__button--disabled' : ''}`}
+                  href="#"
+                  onClick={e => {e.preventDefault(); requestCapture();}}
+                  style={{ pointerEvents: connectionStatus !== 'connected' || isCapturing || countdown !== null ? 'none' : 'auto', opacity: connectionStatus !== 'connected' || isCapturing || countdown !== null ? 0.5 : 1 }}
+                >
+                  {isCapturing ? <Zap style={{ marginRight: 8 }} /> : <Camera style={{ marginRight: 8 }} />}
+                  {isCapturing ? 'Capturing...' : countdown !== null ? `Wait...` : 'Capture Photo'}
+                </a>
+                <div className="brutalist-card__info">
+                  {connectionStatus === 'connected'
+                    ? "📸 Tap the button above to capture a photo from the desktop camera"
+                    : "🔗 Connect to desktop to start capturing photos"}
+                </div>
+              </div>
             </div>
-            <div className="brutalist-card__info" style={{ fontSize: '0.95rem', color: '#555', marginTop: '1rem' }}>
-              🕒 Session will automatically expire after 5 minutes of inactivity<br />📱 Keep this tab open to maintain connection
+          )}
+          {capturedImage && (
+            <div className="brutalist-card">
+              <div className="brutalist-card__header">
+                <div className="brutalist-card__icon"><CheckCircle /></div>
+                <div className="brutalist-card__alert">Captured Photo</div>
+              </div>
+              <div className="brutalist-card__message">
+                <img src={capturedImage} alt="Captured" className="brutalist-card__qr" />
+                <div className="brutalist-card__actions" style={{ display: 'flex', gap: '0.5rem' }}>
+                  <a className="brutalist-card__button brutalist-card__button--mark" href="#" onClick={e => {e.preventDefault(); downloadImage();}}>
+                    <Download style={{ marginRight: 8 }} /> Download
+                  </a>
+                  <a className="brutalist-card__button brutalist-card__button--read" href="#" onClick={async e => {e.preventDefault(); await shareImage();}}>
+                    <Share2 style={{ marginRight: 8 }} /> Share
+                  </a>
+                </div>
+                <div className="brutalist-card__info" style={{ background: '#e6fff7', color: '#008060', padding: '0.5rem', borderRadius: '8px', marginTop: '1rem' }}>
+                  ✨ Photo captured successfully! You can download it or capture another one.
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="brutalist-card">
+            <div className="brutalist-card__header">
+              <div className="brutalist-card__icon"><Power /></div>
+              <div className="brutalist-card__alert">Session Controls</div>
+            </div>
+            <div className="brutalist-card__message">
+              <div className="brutalist-card__actions">
+                <a className={`brutalist-card__button brutalist-card__button--mark${connectionStatus === 'connecting' ? ' brutalist-card__button--disabled' : ''}`} href="#" onClick={e => {e.preventDefault(); window.location.reload();}} style={{ pointerEvents: connectionStatus === 'connecting' ? 'none' : 'auto', opacity: connectionStatus === 'connecting' ? 0.5 : 1 }}>
+                  <RefreshCw style={{ marginRight: 8 }} /> Reconnect
+                </a>
+                <a className="brutalist-card__button brutalist-card__button--read" href="#" onClick={e => {e.preventDefault(); endSession();}}>
+                  <Power style={{ marginRight: 8 }} /> End Session
+                </a>
+              </div>
+              <div className="brutalist-card__info" style={{ fontSize: '0.95rem', color: '#555', marginTop: '1rem' }}>
+                🕒 Session will automatically expire after 5 minutes of inactivity<br />📱 Keep this tab open to maintain connection
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </StyledWrapper>
+      </StyledWrapper>
+    </>
   );
 };
 

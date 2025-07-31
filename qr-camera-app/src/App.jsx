@@ -103,23 +103,7 @@ const MobileRedirect = () => {
             </ol>
           </div>
         </div>
-        <div className="brutalist-card">
-          <div className="brutalist-card__header">
-            <div className="brutalist-card__icon">🖥️</div>
-            <div className="brutalist-card__alert">Desktop Version</div>
-          </div>
-          <div className="brutalist-card__message">
-            <div className="brutalist-card__actions">
-              <a className="brutalist-card__button brutalist-card__button--read" href="/desktop">
-                Continue to Desktop Version
-              </a>
-            </div>
-            <div className="brutalist-card__info" style={{ fontSize: '0.95rem', color: '#555', marginTop: '1rem', textAlign: 'center' }}>
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" style={{ display: 'inline-block', marginRight: '0.5rem', background: '#22c55e', width: '10px', height: '10px', borderRadius: '50%' }}></span>
-              QR Camera Station - Professional Remote Photography
-            </div>
-          </div>
-        </div>
+       
       </div>
     </StyledMobileRedirect>
   );
